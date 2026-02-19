@@ -1,0 +1,53 @@
+def patch(self, request):
+   rule_id = request.data.get('rule_id')
+   rule = (AutoAllocationRuleMaster.objects.prefetch_related("conditions", "actions").get(rule_id=rule_id))
+   rule.is_active = not rule.is_active
+   rule.save(update_fields=["is_active"])
+   formatted = format_rulemaster_data(rule,{})
+   return Response({"data": formatted}, status=status.HTTP_200_OK)
+
+def post(self, request):
+    data = request.data
+    rule_id = data.get("rule_id")
+    rule_data = data.get("rulemaster", {})
+    condition_list = data.get("conditions", [])
+    action_list = data.get("actions", [])
+    rulemaster = createrulemasterdata(rule_data, condition_list, action_list,rule_id)
+    return Response({"status":"success"},status.HTTP_201_CREATED)
+
+def createrulemasterdata(rule_data, condition_list, action_list,rule_id):
+    rulemaster = AutoAllocationRuleMaster.objects.filter(rule_id=rule_id).first()
+    if not rulemaster:
+        rulemaster = AutoAllocationRuleMaster.objects.create(
+        rule_name=rule_data.get('rule_name'),
+        description=rule_data.get('description'),
+        applies_to=rule_data.get('applies_to'),
+        trigger_type=rule_data.get('trigger_type'),
+        department_id=rule_data.get('department_id'),
+        action_type=rule_data.get('action_type'),
+        is_active=rule_data.get('is_active'),
+        start_date=rule_data.get('start_date'),
+        end_date=rule_data.get('end_date'),
+        created_by=rule_data.get('created_by'),
+        updated_by=rule_data.get('updated_by'),
+        priority=rule_data.get('priority')
+        #also pass task code if require
+        )
+    for condition_data in condition_list:
+        AutoAllocationRuleConditions.objects.create(
+            rule_id=rulemaster,
+            group_id=parse_json_if_needed(condition_data.get('group_id')),
+            parameter=parse_json_if_needed(condition_data.get('parameter')),
+            operator=parse_json_if_needed(condition_data.get('operator')),
+            value=parse_json_if_needed(condition_data.get('value')),
+            logical_operator=parse_json_if_needed(condition_data.get('logical_operator'))
+        )
+    for action_data in action_list:
+        AutoAllocationRuleActions.objects.create(
+            rule_id=rulemaster,
+            action_param=parse_json_if_needed(action_data.get('action_param')),
+            created_by=parse_json_if_needed(action_data.get('created_by')),
+            updated_by=parse_json_if_needed(action_data.get('updated_by')),
+            value=parse_json_if_needed(action_data.get('value'))
+        )
+    return rulemaster
